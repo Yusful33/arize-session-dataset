@@ -10,6 +10,7 @@ Clone once, install individual skills or the whole set into `~/.cursor/skills/` 
 
 | Skill | Description |
 |-------|-------------|
+| [add-repo-skill](skills/add-repo-skill/) | Scaffold, validate, and catalog new skills in this repo |
 | [arize-session-dataset](skills/arize-session-dataset/) | Export Arize session traces, pivot to one dataset row with a `conversation` JSON array, upload via `ax datasets` |
 
 ---
@@ -87,7 +88,7 @@ Each skill's `README.md` has prerequisites and examples.
 └── .gitignore
 ```
 
-See [skills/README.md](skills/README.md) for conventions when adding skills.
+See [skills/README.md](skills/README.md) or use the **add-repo-skill** skill to add new skills.
 
 ---
 
