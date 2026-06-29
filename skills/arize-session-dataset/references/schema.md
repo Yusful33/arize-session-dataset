@@ -148,7 +148,7 @@ ax spans export PROJECT \
   --stdout > .arize-tmp-traces/spans.json
 
 # 2. Pivot
-python .claude/skills/arize-session-dataset/scripts/session_to_dataset.py \
+python skills/arize-session-dataset/scripts/session_to_dataset.py \
   --spans .arize-tmp-traces/spans.json \
   --session-id SESSION_ID \
   --project PROJECT \

@@ -1,85 +1,57 @@
-# Arize Session-to-Dataset Skill
+# Agent Skills
 
-Export Arize session traces, pivot multi-turn conversations into **one dataset row per session**, and upload to Arize with the `ax` CLI.
+Personal collection of [Cursor](https://cursor.com) and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) agent skills.
 
-Each dataset row includes a `conversation` JSON array:
-
-```json
-{
-  "session_id": "sess_abc123",
-  "turn_count": 3,
-  "conversation": [
-    {"turn": 1, "input": "...", "output": "...", "trace_id": "..."},
-    {"turn": 2, "input": "...", "output": "...", "trace_id": "..."}
-  ],
-  "project": "my-agent",
-  "first_turn_at": "2026-06-20T10:00:00Z",
-  "last_turn_at": "2026-06-20T10:05:00Z"
-}
-```
-
-Also available upstream in [Arize-ai/solutions-resources](https://github.com/Arize-ai/solutions-resources/tree/main/.claude/skills/arize-session-dataset).
+Clone once, install individual skills or the whole set into `~/.cursor/skills/` or `~/.claude/skills/`.
 
 ---
 
-## Prerequisites
+## Skills
 
-1. **`ax` CLI** — [Arize AX CLI](https://arize.com/docs/ax/cli)
-2. **API key** — create at [app.arize.com/admin](https://app.arize.com/admin) → API Keys
-3. **Space ID or name** — find with `ax spaces list`
-
-Configure credentials:
-
-```bash
-export ARIZE_API_KEY="your-api-key"
-export ARIZE_SPACE_ID="U3BhY2U6..."   # or export ARIZE_SPACE="my-workspace"
-
-ax profiles create --api-key "$ARIZE_API_KEY"
-ax profiles show
-```
+| Skill | Description |
+|-------|-------------|
+| [arize-session-dataset](skills/arize-session-dataset/) | Export Arize session traces, pivot to one dataset row with a `conversation` JSON array, upload via `ax datasets` |
 
 ---
 
 ## Installation
 
-### Option A — Cursor (recommended)
-
-Clone this repo and copy the skill into your personal Cursor skills directory:
+### Install one skill
 
 ```bash
-git clone https://github.com/Yusful33/arize-session-dataset.git
-mkdir -p ~/.cursor/skills/arize-session-dataset
-cp -r arize-session-dataset/{SKILL.md,scripts,references} ~/.cursor/skills/arize-session-dataset/
+git clone https://github.com/Yusful33/arize-session-dataset.git ~/agent-skills
+SKILL=arize-session-dataset   # change per skill
+
+mkdir -p ~/.cursor/skills/$SKILL
+cp -r ~/agent-skills/skills/$SKILL/{SKILL.md,scripts,references} ~/.cursor/skills/$SKILL/ 2>/dev/null || \
+cp -r ~/agent-skills/skills/$SKILL/SKILL.md ~/.cursor/skills/$SKILL/
 ```
 
-Then invoke in Cursor chat:
+For Claude Code, use `~/.claude/skills/` instead of `~/.cursor/skills/`.
 
-> Use the **arize-session-dataset** skill to export session `SESSION_ID` from project `PROJECT` in space `SPACE`.
-
-### Option B — Claude Code / Claude Desktop
+### Install all skills
 
 ```bash
-git clone https://github.com/Yusful33/arize-session-dataset.git
-mkdir -p ~/.claude/skills/arize-session-dataset
-cp -r arize-session-dataset/{SKILL.md,scripts,references} ~/.claude/skills/arize-session-dataset/
+git clone https://github.com/Yusful33/arize-session-dataset.git ~/agent-skills
+
+mkdir -p ~/.cursor/skills
+cp -R ~/agent-skills/skills/* ~/.cursor/skills/
 ```
 
-### Option C — Install from a project repo
-
-Copy into a project so teammates get it with the codebase:
+### Install into a project (share with team)
 
 ```bash
-mkdir -p .cursor/skills/arize-session-dataset
-cp -r /path/to/arize-session-dataset/{SKILL.md,scripts,references} .cursor/skills/arize-session-dataset/
+mkdir -p .cursor/skills
+cp -R skills/<skill-name> .cursor/skills/
+git add .cursor/skills/
 ```
 
-Commit `.cursor/skills/arize-session-dataset/` to share with the team.
-
-### Option D — One-liner (no clone)
+### One-liner (single skill, no clone)
 
 ```bash
-DEST=~/.cursor/skills/arize-session-dataset
-BASE=https://raw.githubusercontent.com/Yusful33/arize-session-dataset/main
+SKILL=arize-session-dataset
+DEST=~/.cursor/skills/$SKILL
+BASE=https://raw.githubusercontent.com/Yusful33/arize-session-dataset/main/skills/$SKILL
 mkdir -p "$DEST/scripts" "$DEST/references"
 curl -fsSL "$BASE/SKILL.md" -o "$DEST/SKILL.md"
 curl -fsSL "$BASE/scripts/session_to_dataset.py" -o "$DEST/scripts/session_to_dataset.py"
@@ -88,68 +60,37 @@ curl -fsSL "$BASE/references/schema.md" -o "$DEST/references/schema.md"
 chmod +x "$DEST/scripts/session_to_dataset.py"
 ```
 
-After install, verify:
-
-```bash
-python ~/.cursor/skills/arize-session-dataset/scripts/session_to_dataset.py --help
-```
-
 ---
 
-## Quick start (manual)
+## Usage
 
-```bash
-SPACE="${ARIZE_SPACE:-$ARIZE_SPACE_ID}"
-PROJECT="my-agent"
-SESSION_ID="your-session-id"
+After installing, invoke by name in chat:
 
-mkdir -p .arize-tmp-traces
+> Use the **arize-session-dataset** skill to export session `SESSION_ID` from project `PROJECT`.
 
-# 1. Export session spans
-ax spans export "$PROJECT" \
-  --space "$SPACE" \
-  --session-id "$SESSION_ID" \
-  --stdout > .arize-tmp-traces/spans.json
-
-# 2. Pivot to one dataset row
-python ~/.cursor/skills/arize-session-dataset/scripts/session_to_dataset.py \
-  --spans .arize-tmp-traces/spans.json \
-  --session-id "$SESSION_ID" \
-  --project "$PROJECT" \
-  --output .arize-tmp-traces/session_row.json
-
-# 3. Upload
-ax datasets create \
-  --name "session-$SESSION_ID" \
-  --space "$SPACE" \
-  --file .arize-tmp-traces/session_row.json
-```
+Each skill's `README.md` has prerequisites and examples.
 
 ---
 
 ## Repository layout
 
 ```
-arize-session-dataset/
-├── README.md              # This file — installation & quick start
-├── SKILL.md               # Agent skill instructions (copy to skills dir)
-├── scripts/
-│   └── session_to_dataset.py
-└── references/
-    ├── credentials.md     # API key & space resolution
-    └── schema.md          # Output columns & span-selection rules
+.
+├── README.md                 # This file — catalog + install
+├── skills/
+│   ├── README.md             # How to add new skills
+│   └── <skill-name>/
+│       ├── SKILL.md
+│       ├── README.md
+│       ├── scripts/
+│       └── references/
+└── .gitignore
 ```
 
----
-
-## Related skills
-
-- [Arize-ai/solutions-resources](https://github.com/Arize-ai/solutions-resources) — internal Solutions skills collection
-- **arize-trace** — export spans by session ID
-- **arize-dataset** — dataset CRUD and verification
+See [skills/README.md](skills/README.md) for conventions when adding skills.
 
 ---
 
-## License
+## Related
 
-MIT
+- [Arize-ai/solutions-resources](https://github.com/Arize-ai/solutions-resources) — Arize Solutions team skills (upstream for some Arize skills)

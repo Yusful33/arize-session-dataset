@@ -161,17 +161,23 @@ jq 'length' .arize-tmp-traces/spans.json
 
 ### Step 3: Pivot to one row
 
-Run the bundled script from the repo skill directory:
+Run the bundled script (from repo checkout or installed skill dir):
 
 ```bash
-python .claude/skills/arize-session-dataset/scripts/session_to_dataset.py \
+# Installed under ~/.cursor/skills/ or ~/.claude/skills/
+python ~/.cursor/skills/arize-session-dataset/scripts/session_to_dataset.py \
+  --spans .arize-tmp-traces/spans.json \
+  --session-id SESSION_ID \
+  --project PROJECT \
+  --output .arize-tmp-traces/session_row.json
+
+# Or from this repo without installing
+python skills/arize-session-dataset/scripts/session_to_dataset.py \
   --spans .arize-tmp-traces/spans.json \
   --session-id SESSION_ID \
   --project PROJECT \
   --output .arize-tmp-traces/session_row.json
 ```
-
-If the skill is installed under `~/.claude/skills/`, use that path instead.
 
 ### Step 4: Validate output
 
