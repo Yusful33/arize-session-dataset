@@ -130,13 +130,42 @@ ax datasets export DATASET --space SPACE --stdout \
 
 ---
 
+## CLI enum casing
+
+`ax` expects **uppercase** enums (lowercase is rejected):
+
+| Flag | Valid values (examples) |
+|------|-------------------------|
+| `--type` | `CATEGORICAL` |
+| `--optimization-direction` | `NONE`, `MAXIMIZE` |
+| `--assignment-method` | `ALL` |
+
+For the default Session Quality config (`good` / `bad` / `needs_review`), use `--optimization-direction NONE`. `MAXIMIZE` fails without scores on categorical labels.
+
+## Annotator email
+
+`ANNOTATOR_EMAIL` must be an **existing Arize user email in the space**. Git/`user.email` is not enough if that address is not in Arize. If queue create returns `404 Annotator email not found`, ask again or list emails from existing queues:
+
+```bash
+ax annotation-queues list --space SPACE -o json \
+  | jq -r '[.[].annotators[]?.email // empty] | unique[]'
+```
+
+## Export fallback when `--all` fails
+
+If Arrow Flight `--all` fails with auth/denied (e.g. `model does not exist or denied access`), retry with a higher REST `--limit` (e.g. `500`) instead of stopping.
+
+---
+
 ## End-to-end example
 
-Replace `SPACE`, `PROJECT`, and `SESSION_ID` with values from the user or from `$ARIZE_SPACE` / `$ARIZE_SPACE_ID`. Never hardcode a space.
+Replace `SPACE`, `PROJECT`, `SESSION_ID`, and `ANNOTATOR_EMAIL` with values from the user or from `$ARIZE_SPACE` / `$ARIZE_SPACE_ID`. Never hardcode a space. `ANNOTATOR_EMAIL` must be an existing Arize user email in the space.
 
 ```bash
 # Resolve space from env or user input
 SPACE="${ARIZE_SPACE:-${ARIZE_SPACE_ID:?Set ARIZE_SPACE or ARIZE_SPACE_ID}}"
+DATASET_NAME="session-SESSION_ID"
+QUEUE_NAME="session-SESSION_ID-review"
 
 mkdir -p .arize-tmp-traces
 
@@ -147,8 +176,13 @@ ax spans export PROJECT \
   --output-dir .arize-tmp-traces \
   --stdout > .arize-tmp-traces/spans.json
 
+# If span count hits the default limit (100), try --all; if --all is
+# unauthorized/denied, fall back to REST --limit 500.
+# ax spans export PROJECT --session-id SESSION_ID --space "$SPACE" --all ...
+# ax spans export PROJECT --session-id SESSION_ID --space "$SPACE" --limit 500 ...
+
 # 2. Pivot
-python skills/arize-session-dataset/scripts/session_to_dataset.py \
+python ~/.cursor/skills/arize-session-dataset/scripts/session_to_dataset.py \
   --spans .arize-tmp-traces/spans.json \
   --session-id SESSION_ID \
   --project PROJECT \
@@ -156,14 +190,68 @@ python skills/arize-session-dataset/scripts/session_to_dataset.py \
 
 # 3. Upload
 ax datasets create \
-  --name "session-SESSION_ID" \
+  --name "$DATASET_NAME" \
   --space "$SPACE" \
   --file .arize-tmp-traces/session_row.json
 
-# 4. Verify
-ax datasets export "session-SESSION_ID" --space "$SPACE" --stdout \
+# 4. Verify + collect all example IDs for the queue
+ax datasets export "$DATASET_NAME" --space "$SPACE" --stdout \
   | jq '.[0].additional_properties // .[0] | {session_id, turn_count}'
+
+DATASET_ID=$(ax datasets get "$DATASET_NAME" --space "$SPACE" -o json | jq -r '.id')
+ax datasets export "$DATASET_NAME" --space "$SPACE" --stdout \
+  > .arize-tmp-traces/dataset_examples.json
+jq -n \
+  --arg dataset_id "$DATASET_ID" \
+  --argjson example_ids "$(jq '[.[].id]' .arize-tmp-traces/dataset_examples.json)" \
+  '[{record_type: "EXAMPLE", dataset_id: $dataset_id, example_ids: $example_ids}]' \
+  > .arize-tmp-traces/record_sources.json
+
+# 5. Ensure default Session Quality annotation config (uppercase enums; NONE not MAXIMIZE)
+CONFIG_ID=$(ax annotation-configs list --space "$SPACE" --name "Session Quality" -o json \
+  | jq -r 'map(select(.name == "Session Quality")) | .[0].id // empty')
+if [ -z "$CONFIG_ID" ]; then
+  CONFIG_ID=$(ax annotation-configs create \
+    --name "Session Quality" \
+    --space "$SPACE" \
+    --type CATEGORICAL \
+    --value good --value bad --value needs_review \
+    --optimization-direction NONE \
+    -o json | jq -r '.id')
+fi
+
+# 6. Create annotation queue with all dataset examples
+ax annotation-queues create \
+  --name "$QUEUE_NAME" \
+  --space "$SPACE" \
+  --annotation-config-id "$CONFIG_ID" \
+  --annotator-email ANNOTATOR_EMAIL \
+  --instructions "Review the full multi-turn conversation. Label Session Quality as good, bad, or needs_review." \
+  --assignment-method ALL \
+  --record-sources .arize-tmp-traces/record_sources.json \
+  -o json
+
+# 7. Verify queue record count
+ax annotation-queues list-records "$QUEUE_NAME" --space "$SPACE" -o json | jq 'length'
 ```
+
+---
+
+## Annotation queue record source shape
+
+Queues are populated from dataset examples using `record_type: "EXAMPLE"`:
+
+```json
+[
+  {
+    "record_type": "EXAMPLE",
+    "dataset_id": "<dataset id from ax datasets get>",
+    "example_ids": ["<example id>", "<example id>"]
+  }
+]
+```
+
+This skill always includes **every** example ID from `ax datasets export` for the target dataset (not only the newly appended session row).
 
 ---
 
