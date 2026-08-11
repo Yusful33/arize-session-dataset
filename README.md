@@ -11,7 +11,7 @@ Clone once, install individual skills or the whole set into `~/.cursor/skills/` 
 | Skill | Description |
 |-------|-------------|
 | [add-repo-skill](skills/add-repo-skill/) | Scaffold, validate, and catalog new skills in this repo |
-| [arize-session-dataset](skills/arize-session-dataset/) | Export Arize session traces, pivot to one dataset row with a `conversation` JSON array, upload via `ax datasets` |
+| [arize-session-dataset](skills/arize-session-dataset/) | Export Arize session traces, pivot to one dataset row with a `conversation` JSON array, upload via `ax datasets`, then create an annotation queue (Session Quality). CLI enums are uppercase; see skill README for `--all` fallback and annotator-email notes. |
 
 ---
 
