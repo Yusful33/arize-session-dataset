@@ -12,6 +12,7 @@ Clone once, install individual skills or the whole set into `~/.cursor/skills/` 
 |-------|-------------|
 | [add-repo-skill](skills/add-repo-skill/) | Scaffold, validate, and catalog new skills in this repo |
 | [arize-session-dataset](skills/arize-session-dataset/) | Export Arize session traces, pivot to one dataset row with a `conversation` JSON array, upload via `ax datasets`, then create an annotation queue (Session Quality). CLI enums are uppercase; see skill README for `--all` fallback and annotator-email notes. |
+| [arize-synthetic-demo](skills/arize-synthetic-demo/) | Human README for the synthetic-data demo skill: scaffold a company-specific generator, notebook, traces, and evals. Full skill lives in [Arize-ai/solutions-resources](https://github.com/Arize-ai/solutions-resources/tree/main/.claude/skills/arize-synthetic-demo). |
 
 ---
 
